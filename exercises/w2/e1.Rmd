@@ -1,0 +1,77 @@
+---
+title: "e1"
+author: "Ari Decter-Frain"
+date: "10/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_libs}
+library(lmtest)
+library(sandwich)
+```
+
+```{r data_gen}
+# Funciton to generate samples
+##############################
+sim <- function(obs, true_beta) {
+  
+  # Generate data
+  x <- rnorm(obs)
+  eps <- rnorm(obs) * sqrt(exp(x))
+  y <- 2 + (true_beta * x) + eps
+  
+  # Estimate model
+  m <- lm(y ~ x)
+  
+  # Get beta, se with base standard errors
+  m_results <- coef(summary(m))
+  b1 <- m_results['x', 'Estimate']
+  se1 <- m_results['x', 'Std. Error']
+  
+  # Again with robust standard errors
+  vcov <- vcovHC(m, type = "HC1")
+  m_robust <- coeftest(m, vcov = vcov)
+  b2 <- m_robust[2, 1]
+  se2 <- m_robust[2, 2]
+  
+  return(data.frame('b1' = b1, 'se1' = se1, 'b2' = b2, 'se2' = se2))
+}
+```
+
+```{r get_results}
+# Run function in loop, collect results
+#######################################
+results <- as.data.frame(matrix(ncol = 4, nrow = 0))
+set.seed(4553)
+for (ii in seq_len(1000)) {
+  obs <- 200
+  true_beta <- 1
+  results <- rbind(results, sim(obs, true_beta))
+}
+```
+
+```{r m_sd}
+apply(results, 2, sd)
+apply(results, 2, mean)
+```
+Key finding is that the mean of se2 (robust standard error) is much closer to
+the standard deviation of the sampling distribution (sd for b1 or b2)
+
+Now check the rate of hypothesis rejection in either case. Should be around 0.05
+if we test rejection of the true beta.
+```{r t_test}
+results$t <- abs(results$b1 - true_beta) / results$se1
+results$t_r <- abs(results$b2 - true_beta) / results$se2
+
+results$reject <- results$t > 1.96
+results$reject_r <- results$t_r > 1.96
+
+summary(results)
+```
+Key finding here is that with robust standard errors, we reject the null
+hypothesis 5% of the time (50ish of 1000 runs), whereas the non-robust test
+rejects roughly 15% of the time.
