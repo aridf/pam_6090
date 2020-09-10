@@ -47,9 +47,9 @@ sim <- function(obs, true_beta) {
 #######################################
 results <- as.data.frame(matrix(ncol = 4, nrow = 0))
 set.seed(4553)
+obs <- 200
+true_beta <- 1
 for (ii in seq_len(1000)) {
-  obs <- 200
-  true_beta <- 1
   results <- rbind(results, sim(obs, true_beta))
 }
 ```
